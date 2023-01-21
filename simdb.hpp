@@ -150,10 +150,13 @@
   #define       SECTION(_msvc_only_collapses_macros_with_arguments, ...)
 #endif
 
+#include "../utfcpp/source/utf8.h" // solve C++1 UTF deprecation
+
 // platform specific includes - mostly for shared memory mapping and auxillary functions like open, close and the windows equivilents
 #if defined(_WIN32)      // windows  
   #include <locale>
-  #include <codecvt>
+
+  // #include <codecvt> // solve C++1 UTF deprecation
 
   #include <tchar.h>
 
@@ -181,6 +184,7 @@
       #define _SCL_SECURE_NO_WARNINGS
     #endif
   #endif
+
 #elif defined(__APPLE__) || defined(__MACH__) || defined(__unix__) || defined(__FreeBSD__) || defined(__linux__)  // osx, linux and freebsd
   // for mmap and munmap
   // PROT_READ and PROT_WRITE  to allow reading and writing but not executing of the mapped memory pages
@@ -233,6 +237,47 @@ namespace {
   {
     void operator()(){}
   };
+
+  // solve C++1 UTF deprecation
+  // https://codingtidbit.com/2020/02/09/c17-codecvt_utf8-is-deprecated/
+  static inline std::string utf8_encode( const std::wstring& wStr )
+  {
+  #if 0
+      return std::wstring_convert<std::codecvt_utf8<wchar_t>>().to_bytes( wStr );
+  #else
+      std::string utf8line;
+
+      if (wStr.empty())
+          return utf8line;
+
+  #ifdef _MSC_VER
+      utf8::utf16to8( wStr.begin(), wStr.end(), std::back_inserter( utf8line ) );
+  #else
+      utf8::utf32to8( wStr.begin(), wStr.end(), std::back_inserter( utf8line ) );
+  #endif
+      return utf8line;
+  #endif
+  }
+
+  // https://codingtidbit.com/2020/02/09/c17-codecvt_utf8-is-deprecated/
+  static inline std::wstring utf8_decode( const std::string& sStr )
+  {
+  #if 0
+      return std::wstring_convert<std::codecvt_utf8<wchar_t>>().from_bytes( sStr );
+  #else
+      std::wstring wide_line;
+
+      if (sStr.empty())
+          return wide_line;
+
+  #ifdef _MSC_VER
+      utf8::utf8to16( sStr.begin(), sStr.end(), std::back_inserter( wide_line ) );
+  #else
+      utf8::utf8to32( sStr.begin(), sStr.end(), std::back_inserter( wide_line ) );
+  #endif
+      return wide_line;
+  #endif
+  }
 
   inline uint64_t fnv_64a_buf(void const *const buf, uint64_t len)                              // sbassett - I know basically nothing about hash functions and there is likely a better one out there 
   {
@@ -1344,7 +1389,8 @@ public:
   }
 
   template<class FUNC, class T>
-  bool      runMatch(const void *const key, u32 klen, u32 hash, FUNC f, T defaultRet = decltype(f(vi))() )       const 
+  //bool      runMatch(const void *const key, u32 klen, u32 hash, FUNC f, T defaultRet = decltype(f(vi))() )       const 
+  bool      runMatch( const void* const key, u32 klen, u32 hash, FUNC f, T defaultRet = decltype(f(VerIdx))() )       const
   {
     using namespace std;
     
@@ -2126,8 +2172,13 @@ public:
       if( strncmp( (char*)info->name.Buffer, (char*)wPrefix, pfxSz)!=0 ){  continue; }
 
       wstring  wname = wstring( ((WCHAR*)info->name.Buffer)+6 );
+
+  #if 0 // ORIGINAL
       wstring_convert<codecvt_utf8<wchar_t>> cnvrtr;
       string    name = cnvrtr.to_bytes(wname);
+  #else
+      string name = utf8_encode( wname );
+  #endif
 
       ret.push_back(name);
     }while(status!=STATUS_NO_MORE_ENTRIES);
