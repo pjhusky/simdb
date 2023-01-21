@@ -150,13 +150,13 @@
   #define       SECTION(_msvc_only_collapses_macros_with_arguments, ...)
 #endif
 
-#include "../utfcpp/source/utf8.h" // solve C++1 UTF deprecation
+#include "../utfcpp/source/utf8.h" // solve C++17 UTF deprecation
 
 // platform specific includes - mostly for shared memory mapping and auxillary functions like open, close and the windows equivilents
 #if defined(_WIN32)      // windows  
   #include <locale>
 
-  // #include <codecvt> // solve C++1 UTF deprecation
+  // #include <codecvt> // solve C++17 UTF deprecation
 
   #include <tchar.h>
 
@@ -238,7 +238,7 @@ namespace {
     void operator()(){}
   };
 
-  // solve C++1 UTF deprecation
+  // solve C++17 UTF deprecation
   // https://codingtidbit.com/2020/02/09/c17-codecvt_utf8-is-deprecated/
   static inline std::string utf8_encode( const std::wstring& wStr )
   {
