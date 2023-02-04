@@ -163,7 +163,11 @@
   //#ifdef UNICODE
   //  #undef UNICODE
   //#endif
-  #define NOMINMAX
+  
+  #ifndef NOMINMAX
+    #define NOMINMAX
+  #endif
+    
   #define WIN32_LEAN_AND_MEAN
   #include <windows.h>
   #include <strsafe.h>
@@ -401,7 +405,7 @@ namespace {
     //}
     PVOID  GetLibraryProcAddress(PSTR LibraryName, PSTR ProcName)
     {
-      return GetProcAddress(GetModuleHandleA(LibraryName), ProcName);
+      return reinterpret_cast<PVOID>(GetProcAddress(GetModuleHandleA(LibraryName), ProcName));
     }
     int               win_printf(const char * format, ...)
     {
@@ -411,7 +415,13 @@ namespace {
       va_list argptr;
           
       va_start( argptr, format );
+      
+    #ifdef _MSC_VER
       retValue = wvsprintfA( szBuff, format, argptr );
+    #else
+      retValue = StringCbVPrintfA( szBuff, sizeof(szBuff), format, argptr );
+    #endif
+      
       va_end( argptr );
 
       WriteFile(  GetStdHandle(STD_OUTPUT_HANDLE), szBuff, retValue,
@@ -489,8 +499,8 @@ class     CncrLst
 public:
   using     u32  =  uint32_t;
   using     u64  =  uint64_t;
-  using    au32  =  volatile std::atomic<u32>;
-  using    au64  =  volatile std::atomic<u64>;
+  using    au32  =  /*volatile*/ std::atomic<u32>; // warning: 'volatile'-qualified parameter is deprecated [-Wvolatile]
+  using    au64  =  /*volatile*/ std::atomic<u64>; // warning: 'volatile'-qualified parameter is deprecated [-Wvolatile]
   using ListVec  =  lava_vec<u32>;
 
   union Head
@@ -1389,8 +1399,8 @@ public:
   }
 
   template<class FUNC, class T>
-  //bool      runMatch(const void *const key, u32 klen, u32 hash, FUNC f, T defaultRet = decltype(f(vi))() )       const 
-  bool      runMatch( const void* const key, u32 klen, u32 hash, FUNC f, T defaultRet = decltype(f(VerIdx))() )       const
+  bool      runMatch(const void *const key, u32 klen, u32 hash, FUNC f, T defaultRet /*= decltype(f(vi))()*/ )       const 
+  //bool      runMatch( const void* const key, u32 klen, u32 hash, FUNC f, T defaultRet = decltype(f(VerIdx))() )       const
   {
     using namespace std;
     
@@ -1400,6 +1410,7 @@ public:
     {
       VerIdx vi = load(i);
       if(vi.idx!=EMPTY && vi.idx!=DELETED){
+        //Match match = runIfMatch(vi,key,klen,hash,f, /*defaultRet*/decltype(f(vi))()).first;
         Match match = runIfMatch(vi,key,klen,hash,f, defaultRet).first;
 
         if(match==MATCH_TRUE || match==MATCH_TRUE_WRONG_VERSION){ return true; }
